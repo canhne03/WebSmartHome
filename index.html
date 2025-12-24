@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Home App</title>
+
+    <!-- MQTT -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Roboto, Arial;
+        background: #f5f5f7;
+      }
+      .app {
+        max-width: 420px;
+        height: 100vh;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+      }
+      header {
+        background: #673ab7;
+        color: #fff;
+        text-align: center;
+        padding: 12px;
+        font-weight: bold;
+      }
+      .screens {
+        flex: 1;
+        overflow: hidden;
+      }
+      .screen {
+        display: none;
+        padding: 10px;
+        height: 100%;
+        overflow: auto;
+      }
+      .screen.active {
+        display: block;
+      }
+      .card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      h3 {
+        font-size: 14px;
+        margin: 6px;
+        color: #555;
+      }
+      .device {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px;
+        background: #eee;
+        border-radius: 12px;
+        margin: 4px 0;
+      }
+      .status {
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+      }
+      .ON {
+        background: #4caf50;
+        color: #fff;
+      }
+      .OFF {
+        background: #999;
+        color: #fff;
+      }
+      .ALERT {
+        background: #f44336;
+        color: #fff;
+      }
+      .controls button {
+        padding: 4px 8px;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        color: #fff;
+      }
+      .on {
+        background: #4caf50;
+      }
+      .off {
+        background: #f44336;
+      }
+      .tab-bar {
+        display: flex;
+        height: 60px;
+        border-top: 1px solid #ddd;
+      }
+      .tab-item {
+        flex: 1;
+        text-align: center;
+        font-size: 12px;
+        padding-top: 6px;
+        cursor: pointer;
+      }
+      .tab-item.active {
+        color: #673ab7;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+      <header style="position: relative; text-align: center">
+        <div style="font-size: 16px">🏠 SMART HOME</div>
+
+        <button
+          onclick="startVoice()"
+          title="Điều khiển bằng giọng nói"
+          style="
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: #fff;
+            color: #673ab7;
+            font-size: 18px;
+            cursor: pointer;
+          "
+        >
+          🎤
+        </button>
+
+        <div style="font-size: 12px; margin-top: 4px">
+          MQTT:
+          <span id="mqttStatus" style="font-weight: bold">DISCONNECTED</span>
+        </div>
+      </header>
+
+      <div class="screens">
+        <!-- SECURITY -->
+        <div class="screen active" id="security">
+          <div class="card">
+            <h3>⚠️ An ninh & Cảnh báo</h3>
+            <div class="device">
+              Gas <span class="status OFF" id="st_gas">NORMAL</span>
+            </div>
+            <div class="device">
+              Mưa <span class="status OFF" id="st_rain">CLEAR</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- BEDROOM -->
+        <div class="screen" id="bedroom">
+          <div class="card">
+            <h3>🛏 Phòng ngủ</h3>
+
+            <div class="device">
+              Đèn <span class="status OFF" id="st_br_light">OFF</span>
+              <div class="controls">
+                <button class="on" onclick="control('br/light','on')">
+                  ON
+                </button>
+                <button class="off" onclick="control('br/light','off')">
+                  OFF
+                </button>
+              </div>
+            </div>
+
+            <div class="device">
+              Quạt <span class="status OFF" id="st_br_fan">OFF</span>
+              <div class="controls">
+                <button class="on" onclick="control('br/fan','on')">ON</button>
+                <button class="off" onclick="control('br/fan','off')">
+                  OFF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LIVING -->
+        <div class="screen" id="living">
+          <div class="card">
+            <h3>🛋 Phòng khách</h3>
+
+            <div class="device">
+              Đèn <span class="status OFF" id="st_lr_light">OFF</span>
+              <div class="controls">
+                <button class="on" onclick="control('lr/light','on')">
+                  ON
+                </button>
+                <button class="off" onclick="control('lr/light','off')">
+                  OFF
+                </button>
+              </div>
+            </div>
+
+            <div class="device">
+              Quạt <span class="status OFF" id="st_lr_fan">OFF</span>
+              <div class="controls">
+                <button class="on" onclick="control('lr/fan','on')">ON</button>
+                <button class="off" onclick="control('lr/fan','off')">
+                  OFF
+                </button>
+              </div>
+            </div>
+
+            <div class="device">
+              Rèm <span class="status OFF" id="st_lr_curtain">CLOSED</span>
+              <div class="controls">
+                <button class="on" onclick="control('lr/curtain','on')">
+                  OPEN
+                </button>
+                <button class="off" onclick="control('lr/curtain','off')">
+                  CLOSE
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOG -->
+        <div class="screen" id="log">
+          <div class="card">
+            <h3>📜 Nhật ký hệ thống</h3>
+
+            <!-- NÚT ĐIỀU KHIỂN LOG -->
+            <div style="display: flex; gap: 8px; margin-bottom: 8px">
+              <button
+                onclick="downloadLog()"
+                style="
+                  flex: 1;
+                  padding: 6px;
+                  border: none;
+                  border-radius: 8px;
+                  background: #2196f3;
+                  color: #fff;
+                  font-weight: bold;
+                "
+              >
+                ⬇ Tải log
+              </button>
+
+              <button
+                onclick="clearLog()"
+                style="
+                  flex: 1;
+                  padding: 6px;
+                  border: none;
+                  border-radius: 8px;
+                  background: #f44336;
+                  color: #fff;
+                  font-weight: bold;
+                "
+              >
+                🗑 Xóa log
+              </button>
+            </div>
+
+            <!-- KHUNG LOG (GIỮ NGUYÊN) -->
+            <div
+              id="logBox"
+              style="
+                background: #111;
+                color: #0f0;
+                font-size: 12px;
+                padding: 8px;
+                border-radius: 10px;
+                height: 60vh;
+                overflow: auto;
+                white-space: pre-wrap;
+              "
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB -->
+      <div class="tab-bar">
+        <div class="tab-item active" onclick="tab('security',this)">
+          🛡<br />An ninh
+        </div>
+        <div class="tab-item" onclick="tab('bedroom',this)">🛏<br />Ngủ</div>
+        <div class="tab-item" onclick="tab('living',this)">🛋<br />Khách</div>
+        <div class="tab-item" onclick="tab('log',this)">📜<br />Log</div>
+      </div>
+    </div>
+
+    <script>
+      /* ================= MQTT CONFIG ================= */
+      const client = mqtt.connect(
+        "wss://4437579706564908ba110780fa23276c.s1.eu.hivemq.cloud:8884/mqtt",
+        {
+          username: "thienha",
+          password: "Thienha123",
+          clientId: "WEB_SMARTHOME_" + Math.random().toString(16).slice(2),
+          clean: true,
+          reconnectPeriod: 2000,
+        }
+      );
+
+      const mqttStatus = document.getElementById("mqttStatus");
+      const logBox = document.getElementById("logBox");
+
+      function log(msg) {
+        logBox.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      client.on("connect", () => {
+        mqttStatus.textContent = "CONNECTED";
+        mqttStatus.style.color = "#4caf50";
+        log("MQTT CONNECTED");
+
+        client.subscribe([
+          "br/light/state",
+          "br/fan/state",
+          "lr/light/state",
+          "lr/fan/state",
+          "lr/curtain/state",
+          "sensor/gas/state",
+          "sensor/rain",
+        ]);
+      });
+
+      client.on("offline", () => {
+        mqttStatus.textContent = "OFFLINE";
+        mqttStatus.style.color = "#f44336";
+        log("MQTT OFFLINE");
+      });
+
+      client.on("message", (topic, message) => {
+        const v = message.toString();
+        log(`${topic} => ${v}`);
+
+        if (topic === "sensor/gas/state")
+          set("st_gas", v === "danger", "ALERT");
+
+        if (topic === "sensor/rain") set("st_rain", v === "raining", "ALERT");
+
+        if (topic === "br/light/state") set("st_br_light", v === "on");
+        if (topic === "br/fan/state") set("st_br_fan", v === "on");
+        if (topic === "lr/light/state") set("st_lr_light", v === "on");
+        if (topic === "lr/fan/state") set("st_lr_fan", v === "on");
+
+        if (topic === "lr/curtain/state") {
+          const e = document.getElementById("st_lr_curtain");
+          e.textContent = v.toUpperCase();
+          e.className =
+            "status " +
+            (v.includes("open")
+              ? "ON"
+              : v.includes("closed")
+              ? "OFF"
+              : "ALERT");
+        }
+      });
+
+      function control(topic, payload) {
+        if (!client.connected) {
+          log("❌ MQTT NOT CONNECTED");
+          return;
+        }
+
+        client.publish(topic, payload, { qos: 1, retain: false });
+        log(`CONTROL ${topic} => ${payload}`);
+      }
+
+      function set(id, on, alert) {
+        const e = document.getElementById(id);
+        e.className = "status " + (on ? alert || "ON" : "OFF");
+        e.textContent = on ? "ON" : "OFF";
+      }
+
+      function tab(id, el) {
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-item")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        el.classList.add("active");
+      }
+      function clearLog() {
+        if (!logBox.textContent) return;
+        if (confirm("Bạn có chắc muốn xóa toàn bộ log?")) {
+          logBox.textContent = "";
+        }
+      }
+
+      function downloadLog() {
+        if (!logBox.textContent) {
+          alert("Log trống, không có gì để tải!");
+          return;
+        }
+
+        const blob = new Blob([logBox.textContent], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download =
+          "smarthome_log_" +
+          new Date().toISOString().replace(/[:.]/g, "-") +
+          ".txt";
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      /* ===== VOICE CONTROL ===== */
+      let recognition;
+
+      if ("webkitSpeechRecognition" in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.lang = "vi-VN"; // Tiếng Việt
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+          log("🎤 Đang nghe...");
+        };
+
+        recognition.onresult = (event) => {
+          const text = event.results[0][0].transcript.toLowerCase();
+          log("🗣 Bạn nói: " + text);
+
+          /* ===== PHÂN TÍCH CÂU NÓI ===== */
+
+          // PHÒNG NGỦ
+          if (text.includes("đèn") && text.includes("phòng ngủ")) {
+            if (text.includes("bật")) control("br/light", "on");
+            if (text.includes("tắt")) control("br/light", "off");
+            return;
+          }
+
+          if (text.includes("quạt") && text.includes("phòng ngủ")) {
+            if (text.includes("bật")) control("br/fan", "on");
+            if (text.includes("tắt")) control("br/fan", "off");
+            return;
+          }
+
+          // PHÒNG KHÁCH
+          if (text.includes("đèn") && text.includes("phòng khách")) {
+            if (text.includes("bật")) control("lr/light", "on");
+            if (text.includes("tắt")) control("lr/light", "off");
+            return;
+          }
+
+          if (text.includes("quạt") && text.includes("phòng khách")) {
+            if (text.includes("bật")) control("lr/fan", "on");
+            if (text.includes("tắt")) control("lr/fan", "off");
+            return;
+          }
+
+          if (text.includes("rèm") && text.includes("phòng khách")) {
+            if (text.includes("mở")) control("lr/curtain", "on");
+            if (text.includes("đóng")) control("lr/curtain", "off");
+            return;
+          }
+
+          log("⚠️ Không hiểu lệnh giọng nói");
+        };
+        recognition.onerror = (e) => {
+          log("❌ Lỗi mic: " + e.error);
+        };
+
+        recognition.onend = () => {
+          log("🎤 Dừng nghe");
+        };
+      } else {
+        alert("Trình duyệt không hỗ trợ nhận giọng nói!");
+      }
+
+      function startVoice() {
+        if (!recognition) return;
+        recognition.start();
+      }
+    </script>
+  </body>
+</html>
