@@ -429,10 +429,9 @@
         recognition.lang = "vi-VN"; // Tiếng Việt
         recognition.continuous = false;
         recognition.interimResults = false;
-
         recognition.onstart = () => {
           isListening = true;
-          log("🎤 Đang nghe... (bấm lại để dừng)");
+          log("🎤 Đang nghe...");
         };
 
         recognition.onend = () => {
@@ -488,14 +487,8 @@
       }
 
       function startVoice() {
-        if (!recognition) return;
-
-        if (!isListening) {
-          recognition.start(); // Bấm lần 1 → nghe
-        } else {
-          recognition.stop(); // Bấm lần 2 → dừng & xử lý
-          log("⏹ Xác nhận lệnh...");
-        }
+        if (!recognition || isListening) return;
+        recognition.start();
       }
     </script>
   </body>
