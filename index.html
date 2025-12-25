@@ -420,73 +420,37 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
-      /* ===== VOICE CONTROL ===== */
-      let recognition;
 
-      if ("webkitSpeechRecognition" in window) {
-        recognition = new webkitSpeechRecognition();
-        recognition.lang = "vi-VN"; // Tiếng Việt
-        recognition.continuous = false;
-        recognition.interimResults = false;
+      async function startVoice() {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
 
-        recognition.onstart = () => {
-          log("🎤 Đang nghe...");
+        const recorder = new MediaRecorder(stream, {
+          mimeType: "audio/webm",
+        });
+
+        recorder.start();
+        log("🎤 Ghi âm...");
+
+        setTimeout(() => recorder.stop(), 3000);
+
+        recorder.ondataavailable = async (e) => {
+          // DỪNG MIC
+          stream.getTracks().forEach((t) => t.stop());
+
+          const form = new FormData();
+          form.append("audio", e.data, "voice.webm");
+
+          const res = await fetch("https://75d794a33a77.ngrok-free.app/voice", {
+            method: "POST",
+            body: form,
+          });
+
+          const data = await res.json();
+          log("🗣 " + data.text);
+          log("⚡ ACTION: " + data.action);
         };
-
-        recognition.onresult = (event) => {
-          const text = event.results[0][0].transcript.toLowerCase();
-          log("🗣 Bạn nói: " + text);
-
-          /* ===== PHÂN TÍCH CÂU NÓI ===== */
-
-          // PHÒNG NGỦ
-          if (text.includes("đèn") && text.includes("phòng ngủ")) {
-            if (text.includes("bật")) control("br/light", "on");
-            if (text.includes("tắt")) control("br/light", "off");
-            return;
-          }
-
-          if (text.includes("quạt") && text.includes("phòng ngủ")) {
-            if (text.includes("bật")) control("br/fan", "on");
-            if (text.includes("tắt")) control("br/fan", "off");
-            return;
-          }
-
-          // PHÒNG KHÁCH
-          if (text.includes("đèn") && text.includes("phòng khách")) {
-            if (text.includes("bật")) control("lr/light", "on");
-            if (text.includes("tắt")) control("lr/light", "off");
-            return;
-          }
-
-          if (text.includes("quạt") && text.includes("phòng khách")) {
-            if (text.includes("bật")) control("lr/fan", "on");
-            if (text.includes("tắt")) control("lr/fan", "off");
-            return;
-          }
-
-          if (text.includes("rèm") && text.includes("phòng khách")) {
-            if (text.includes("mở")) control("lr/curtain", "on");
-            if (text.includes("đóng")) control("lr/curtain", "off");
-            return;
-          }
-
-          log("⚠️ Không hiểu lệnh giọng nói");
-        };
-        recognition.onerror = (e) => {
-          log("❌ Lỗi mic: " + e.error);
-        };
-
-        recognition.onend = () => {
-          log("🎤 Dừng nghe");
-        };
-      } else {
-        alert("Trình duyệt không hỗ trợ nhận giọng nói!");
-      }
-
-      function startVoice() {
-        if (!recognition) return;
-        recognition.start();
       }
     </script>
   </body>
