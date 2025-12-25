@@ -150,11 +150,25 @@
         <div class="screen active" id="security">
           <div class="card">
             <h3>⚠️ An ninh & Cảnh báo</h3>
+
+            <!-- GAS -->
             <div class="device">
               Gas <span class="status OFF" id="st_gas">NORMAL</span>
             </div>
             <div class="device">
+              Quạt hút gas <span class="status OFF" id="st_gas_fan">OFF</span>
+            </div>
+            <div class="device">
+              Còi báo gas <span class="status OFF" id="st_gas_buzzer">OFF</span>
+            </div>
+
+            <!-- RAIN -->
+            <div class="device">
               Mưa <span class="status OFF" id="st_rain">CLEAR</span>
+            </div>
+            <div class="device">
+              Giàn phơi đồ
+              <span class="status OFF" id="st_drying_rack">OPEN</span>
             </div>
           </div>
         </div>
@@ -328,6 +342,8 @@
           "lr/light/state",
           "lr/fan/state",
           "lr/curtain/state",
+
+          // ===== SENSOR =====
           "sensor/gas/state",
           "sensor/rain",
         ]);
@@ -343,10 +359,44 @@
         const v = message.toString();
         log(`${topic} => ${v}`);
 
-        if (topic === "sensor/gas/state")
-          set("st_gas", v === "danger", "ALERT");
+        if (topic === "sensor/gas/state") {
+          const isDanger = v === "danger";
 
-        if (topic === "sensor/rain") set("st_rain", v === "raining", "ALERT");
+          // ===== GAS SENSOR (ĐỎ) =====
+          const gas = document.getElementById("st_gas");
+          gas.textContent = isDanger ? "DANGER" : "NORMAL";
+          gas.className = "status " + (isDanger ? "ALERT" : "OFF");
+
+          // ===== QUẠT HÚT GAS (XANH) =====
+          const fan = document.getElementById("st_gas_fan");
+          fan.textContent = isDanger ? "ON" : "OFF";
+          fan.className = "status " + (isDanger ? "ON" : "OFF");
+
+          // ===== CÒI BÁO GAS (XANH) =====
+          const buzzer = document.getElementById("st_gas_buzzer");
+          buzzer.textContent = isDanger ? "ON" : "OFF";
+          buzzer.className = "status " + (isDanger ? "ON" : "OFF");
+        }
+
+        if (topic === "sensor/rain") {
+          // ===== RAIN SENSOR (ĐỎ) =====
+          const rain = document.getElementById("st_rain");
+          const isRaining = v === "raining";
+
+          rain.textContent = isRaining ? "RAINING" : "CLEAR";
+          rain.className = "status " + (isRaining ? "ALERT" : "OFF");
+
+          // Giàn phơi đồ
+          const rack = document.getElementById("st_drying_rack");
+
+          if (v === "raining") {
+            rack.textContent = "ON";
+            rack.className = "status ON";
+          } else {
+            rack.textContent = "OFF";
+            rack.className = "status OFF";
+          }
+        }
 
         if (topic === "br/light/state") set("st_br_light", v === "on");
         if (topic === "br/fan/state") set("st_br_fan", v === "on");
