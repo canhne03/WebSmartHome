@@ -421,9 +421,9 @@
         URL.revokeObjectURL(url);
       }
 
- /* ===== VOICE CONTROL ===== */
+      /* ===== VOICE CONTROL ===== */
       let recognition;
-
+      let isListening = false;
       if ("webkitSpeechRecognition" in window) {
         recognition = new webkitSpeechRecognition();
         recognition.lang = "vi-VN"; // Tiếng Việt
@@ -431,7 +431,13 @@
         recognition.interimResults = false;
 
         recognition.onstart = () => {
-          log("🎤 Đang nghe...");
+          isListening = true;
+          log("🎤 Đang nghe... (bấm lại để dừng)");
+        };
+
+        recognition.onend = () => {
+          isListening = false;
+          log("🎤 Đã dừng nghe");
         };
 
         recognition.onresult = (event) => {
@@ -477,17 +483,19 @@
         recognition.onerror = (e) => {
           log("❌ Lỗi mic: " + e.error);
         };
-
-        recognition.onend = () => {
-          log("🎤 Dừng nghe");
-        };
       } else {
         alert("Trình duyệt không hỗ trợ nhận giọng nói!");
       }
 
       function startVoice() {
         if (!recognition) return;
-        recognition.start();
+
+        if (!isListening) {
+          recognition.start(); // Bấm lần 1 → nghe
+        } else {
+          recognition.stop(); // Bấm lần 2 → dừng & xử lý
+          log("⏹ Xác nhận lệnh...");
+        }
       }
     </script>
   </body>
